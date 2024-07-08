@@ -41,7 +41,7 @@ Sequence processing tool:
 ## <a name="install"></a>Installation
 ### Install LorBin via pip
 You can install LorBin from pip. After installing Anaconda (or miniconda), first, obtain LorBin:  
-git clone [https://github.com/  ](https://github.com/LorMeBioAI/LorBin.git)
+git clone [https://github.com/LorBin.git](https://github.com/LorMeBioAI/LorBin.git)
 Then create an environment to run LorBin.  
 ```
 cd path_to_LorBin
