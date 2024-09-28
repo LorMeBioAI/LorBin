@@ -4,7 +4,7 @@ import torch
 from Bio import SeqIO
 from sklearn.neighbors import kneighbors_graph
 import math
-
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from .utils import get_marker, process_fasta
 from .model.KeepModel import KeepModel
 from .model.EvaluationModel import EvaluationModel
@@ -198,12 +198,12 @@ def bin_cluster(logger, latent, contig2marker, contig_dict, contig_list, contig_
         model1.load_state_dict(torch.load(f'{modeldir}/model/huigui_weights.pt'))
         model2 = KeepModel(3)
         model2.load_state_dict(torch.load(f'{modeldir}/model/keepmodel_weights.pt'))
-    elif feature=="makers110":
+    elif feature=="markers110":
         model1 = EvaluationModel(110)
         model1.load_state_dict(torch.load(f'{modeldir}/model/huigui_weights_markers110.pt'))
         model2 = KeepModel(110)
-        model2.load_state_dict(torch.load('{modeldir}/model/keepmodel_weights_markers110.pt'))
-        vocabulary_df = pd.read_csv('{modeldir}/model/single-copy-genes.csv', index_col=0)
+        model2.load_state_dict(torch.load(f'{modeldir}/model/keepmodel_weights_markers110.pt'))
+        vocabulary_df = pd.read_csv(f'{modeldir}/model/single-copy-genes.csv', index_col=0)
         vocabulary = list(vocabulary_df.iloc[:, 0])
         vectorizer = CountVectorizer(vocabulary=vocabulary, lowercase=False)
         tfidf_transformer = TfidfTransformer()
@@ -212,7 +212,7 @@ def bin_cluster(logger, latent, contig2marker, contig_dict, contig_list, contig_
         model1.load_state_dict(torch.load(f'{modeldir}/model/huigui_weights_markers35.pt'))
         model2 = KeepModel(35)
         model2.load_state_dict(torch.load(f'{modeldir}/model/keepmodel_weights_markers35.pt'))
-        vocabulary_df = pd.read_csv('{modeldir}/model/single-copy-genes35.csv', index_col=0)
+        vocabulary_df = pd.read_csv(f'{modeldir}/model/single-copy-genes35.csv', index_col=0)
         vocabulary = list(vocabulary_df.iloc[:, 0])
         vectorizer = CountVectorizer(vocabulary=vocabulary, lowercase=False)
         tfidf_transformer = TfidfTransformer()

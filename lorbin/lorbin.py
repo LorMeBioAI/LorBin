@@ -210,6 +210,7 @@ def main():
         logger.addHandler(file_handler)
         file_handler.setFormatter(formatter)
         generate_data(logger, args.fasta, args.bam, args.output, args.num_process)
+        #generate_markers(logger, args.fasta, args.bin_length, args.num_process, args.output)
     elif args.cmd == 'train':
         check_train(logger, args.output)
         file_handler = logging.FileHandler(f"{args.output}/LorBin.log") 
