@@ -29,7 +29,7 @@ def check_cluster(logger, outdir, fastadir, embeddingdir,data, feature, a):
         return False
     if embeddingdir==None and data==None:
         return False
-    if embeddingdir!=None and not os.path.exists(embeddingdir)
+    if embeddingdir!=None and not os.path.exists(embeddingdir):
         return False
     if data!=None and not os.path.exists(data):
         return False
