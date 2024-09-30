@@ -173,14 +173,15 @@ def parser_args():
         p.add_argument('--evaluation',type=str, default="no_markers", help='Evaluation model used(no_markers, markers110, markers35, default: nomarkers')
         p.add_argument('-a','--akeep',default=0.6, help='The cut-off parameters of re-clustering decision model(0~1, default:0.6)')
         p.add_argument('--multi',action='store_true', default=False, help='Cluster uses more samples')
-    cluster.add_argument('--embeddingdir','-e',required=True,default=None, help='The path of embedding csv file used in clustering')
+    cluster.add_argument('--embeddingdir','-e',default=None, help='The path of embedding csv file used in clustering')
+    cluster.add_argument('--data',default=None, help='The path of training data')
     cluster.add_argument('--num_process', default=10, help=' Number of threads used (default: 10)')
     train.add_argument('--data',type=str, help='The path of training data', required=True)
     train.add_argument('-o','--output',type=str,help='Output directory (will be created if non-existent)',required=True, default=None)
-    train.add_argument('--epoch','-n', help='training epoch (default: 300)', default=50)
+    train.add_argument('--epoch','-n', help='training epoch (default: 300)', default=300)
     train.add_argument('--lrate','-l',help='learning rate (default: 0.001)', default=0.001)
     train.add_argument('--batch_size', help = 'batch size (default: 64)', default=64)
-    train.add_argument('--batchsteps', help = 'batchseteps (default: 30, 60, 120)', default=[10, 20], nargs='+')
+    train.add_argument('--batchsteps', help = 'batchseteps (default: 30, 60, 120)', default=[30, 60, 120], nargs='+')
     concat_fasta.add_argument('-fa','--fasta',type=str, nargs='+',help='The path to input FASTA files',required=True)
     concat_fasta.add_argument('-o','--output',help="The path to output FASTA file", required=True)
     args = parser.parse_args()
@@ -198,7 +199,7 @@ def main():
         logger.addHandler(file_handler)
         generate_data(logger, args.fasta, args.bam, args.output, args.num_process)
         generate_markers(logger, args.fasta, args.bin_length, args.num_process, args.output)
-        train_vae(logger,args.output, epoch=30)
+        train_vae(logger,args.output, epoch=args.epoch)
         embeddingdir = f"{args.output}/embedding.csv"
         if args.multi:
             mcluster(logger, args.output, args.fasta, embeddingdir, args.bin_length, args.evaluation,args.akeep)
@@ -210,7 +211,7 @@ def main():
         logger.addHandler(file_handler)
         file_handler.setFormatter(formatter)
         generate_data(logger, args.fasta, args.bam, args.output, args.num_process)
-        #generate_markers(logger, args.fasta, args.bin_length, args.num_process, args.output)
+        generate_markers(logger, args.fasta, args.bin_length, args.num_process, args.output)
     elif args.cmd == 'train':
         check_train(logger, args.output)
         file_handler = logging.FileHandler(f"{args.output}/LorBin.log") 
@@ -218,11 +219,13 @@ def main():
         file_handler.setFormatter(formatter) 
         train_vae(logger, args.output,  args.batch_size, args.epoch, args.batchsteps, args.lrate, args.data)
     elif args.cmd=='cluster':
-        if not check_cluster(logger, args.output, args.fasta, args.embeddingdir, args.evaluation, args.akeep):sys.exit()
+        if not check_cluster(logger, args.output, args.fasta, args.embeddingdir, args.data, args.evaluation, args.akeep):sys.exit()
         file_handler = logging.FileHandler(f"{args.output}/LorBin.log") 
         logger.addHandler(file_handler)
         file_handler.setFormatter(formatter)
         generate_markers(logger, args.fasta, args.bin_length, args.num_process, args.output)
+        if args.embeddingdir==None:
+            train_vae(logger, args.output,  args.batch_size, args.epoch, args.batchsteps, args.lrate, args.data)
         if args.multi:
             mcluster(logger, args.output, args.fasta, args.embeddingdir, args.bin_length, args.evaluation,args.akeep)
         else:

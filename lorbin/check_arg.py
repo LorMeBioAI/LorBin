@@ -20,14 +20,18 @@ def check_generate_data(logger, fastadir, bams, outdir):
         logger.info(f'the {outdir} makes')
     return True
 
-def check_cluster(logger, outdir, fastadir, embeddingdir, feature, a):
+def check_cluster(logger, outdir, fastadir, embeddingdir,data, feature, a):
     if fastadir.split('.')[-1] not in ['fa','fasta','fna']:
         logger.info('the format of input file must be .fa, .fasta, .fna')
         return False
     elif not os.path.exists(fastadir):
         logger.info(f'the {fastadir} not exists')
         return False
-    if not os.path.exists(embeddingdir):
+    if embeddingdir==None and data==None:
+        return False
+    if embeddingdir!=None and not os.path.exists(embeddingdir)
+        return False
+    if data!=None and not os.path.exists(data):
         return False
     if feature not in ['no_markers', 'markers110', 'markers35']:
         logger.info("not find th evaluation model, feature should be 'no_markers', 'markers110', 'markers35'.")
