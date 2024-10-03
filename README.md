@@ -47,19 +47,29 @@ Then create an environment to run LorBin.
 cd path_to_LorBin
 conda env create -f lorbin_env.yaml
 conda activate lorbin_env
-pip install dist/lorbin-1.0.0.tar.gz
+pip install dist/lorbin-0.1.0.tar.gz
+```
+If installing the environment through the configuration file is too slow, or you need an environment that is more suitable for your hardware, you can install it step by step.
+```
+create -n lorbin_env python=3.10
+conda activate lorbin_env
+
+conda install biopython=1.78 hmmer prodigal samtools bedtools -c bioconda
+
+# CUDA 11.3 If you use GPUs, you had better check your version of CUDA and browse https://pytorch.org/ to choose which pytorch you need. 
+conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
+# CPU Only
+conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cpuonly -c pytorch
+
+pip install numpy==1.23.3 scikit-learn=1.1.2 scipy=1.13.1 pandas=2.2.2 joblib=1.4.2
 ```
 ## <a name="demo"></a>A test dataset to demo LorBin
 We provide a small dataset to demo and test the software. The contigs were assembled by hifiasm.   
 Concatenate the input single FASTA file and create BAM files
-The inputs for LorBin include contigs and BAM files.
-```angular2html
-contig file:test/test.fna
-BAM files:test/test1.sort.bam   test/test2.sort.bam
-```
+The inputs for LorBin include contigs and BAM files.You cat get a test dataset at https://zenodo.org/records/13883404
 Run LorBin on the test dataset:
 ```angular2html
-LorBin bin --fa test/test.fna -b test1.sort.bam test2.sort.bam -o test_o --mulit
+LorBin bin --fa test/test.fna -b test.sort.bam -o test_o
 ```
 ## <a name="preprocess"></a>Preprocessing
 The preprocessing steps aim to obtain a single FASTA file and generate bam files as input to our program.

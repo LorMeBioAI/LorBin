@@ -1,22 +1,23 @@
 name: lorbin_env
 channels:
+  - bioconda
   - pytorch
   - conda-forge
-  - bioconda
-  - defaults
+  - default
+
 dependencies:
   - python=3.10
   - biopython=1.78
-  - hmmer=3.1b2
-  - prodigal=2.6.3
-  - bedtools=2.26.0
+  - hmmer
+  - prodigal
+  - bedtools
+  - samtools
   - pytorch=1.11.0
-  - setuptools=65.5.0
+  - setuptools
   - torchvision=0.12.0
   - torchaudio=0.11.0
   - numpy=1.23.3
   - pip=22.2.2
-  - samtools=1.15.1
   - pip:
       - pandas==2.2.2
       - scikit-learn==1.1.2

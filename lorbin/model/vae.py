@@ -499,9 +499,9 @@ class VAE(nn.Module):
         Inputs:
             logger: 运行日记
             dataloader: DataLoader made by make_dataloader
-            nepochs: Train for this many epochs before encoding [500]
+            nepochs: Train for this many epochs before encoding [300]
             lrate: Starting learning rate for the optimizer [0.001]
-            batchsteps: None or double batchsize at these epochs [25, 75, 150, 300]
+            batchsteps: None or double batchsize at these epochs [10, 30, 100]
             logfile: Print status updates to this file if not None [None]
 
         Output: None
@@ -529,10 +529,6 @@ class VAE(nn.Module):
                     f"Last batch size of {last_batchsize} exceeds dataset length "
                     f"of {len(dataloader.dataset)}. "  # type: ignore
                     "This means you have too few contigs left after filtering to train. "
-                    "It is not adviced to run Vamb with fewer than 10,000 sequences "
-                    "after filtering. "
-                    "Please check the Vamb log file to see where the sequences were "
-                    "filtered away, and verify BAM files has sensible content."
                 )
             batchsteps_set = set(batchsteps)
 

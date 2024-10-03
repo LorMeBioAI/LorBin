@@ -1,2 +1,3 @@
 [console_scripts]
 LorBin = lorbin.lorbin:main
+
