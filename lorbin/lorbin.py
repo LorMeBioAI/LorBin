@@ -60,7 +60,7 @@ def generate_markers(logger,fastadir, bin_length, num_process, outdir):
     utils.generate_markers(fastadir, bin_length, num_process, output = outdir)
 
 
-def train_vae(logger, outdir, batch_size=64, epoch=300, batchsteps=[25],  lrate=1e-3, datapath=None):
+def train_vae(logger, outdir, batch_size=64, epoch=300, batchsteps=[25],  lrate=1e-3, is_cuda=None, datapath=None):
     if not datapath:
         datapath = f"{outdir}/data.csv"
     df = pd.read_csv(datapath, index_col=0)
@@ -70,7 +70,8 @@ def train_vae(logger, outdir, batch_size=64, epoch=300, batchsteps=[25],  lrate=
     length = data[:,-1]
     rpkm, tnf, length, weights = vae.normalize(rpkm, tnf,length)
     dataloader = vae.make_dataloader(rpkm, tnf, length, weights, batch_size)
-    is_cuda = torch.cuda.is_available()
+    if is_cuda==None:
+        is_cuda = torch.cuda.is_available()
     logger.info(f"VAE build cuda set is {is_cuda}")
     model = vae.VAE(rpkm.shape[1], None, 32, None, 200.0, 0.2, is_cuda,0)
     model.trainmodel(logger, outdir,dataloader, nepochs=epoch, batchsteps = batchsteps)
@@ -176,12 +177,19 @@ def parser_args():
     cluster.add_argument('--embeddingdir','-e',default=None, help='The path of embedding csv file used in clustering')
     cluster.add_argument('--data',default=None, help='The path of training data')
     cluster.add_argument('--num_process', default=10, help=' Number of threads used (default: 10)')
+    cluster.add_argument('--cuda', help = 'whether use cuda', required=False, action='store_true')
+    cluster.add_argument('--batch_size', help = 'batch size (default: 64)', default=128)
+    cluster.add_argument('--epoch','-n', help='training epoch (default: 300)', default=300)
+    cluster.add_argument('--lrate','-l',help='learning rate (default: 0.001)', default=0.001)
+    cluster.add_argument('--batchsteps', help = 'batchseteps (default: 30, 60, 120)', default=[30, 100], nargs='+')
+
     train.add_argument('--data',type=str, help='The path of training data', required=True)
     train.add_argument('-o','--output',type=str,help='Output directory (will be created if non-existent)',required=True, default=None)
     train.add_argument('--epoch','-n', help='training epoch (default: 300)', default=300)
     train.add_argument('--lrate','-l',help='learning rate (default: 0.001)', default=0.001)
-    train.add_argument('--batch_size', help = 'batch size (default: 64)', default=64)
-    train.add_argument('--batchsteps', help = 'batchseteps (default: 30, 60, 120)', default=[30, 60, 120], nargs='+')
+    train.add_argument('--batch_size', help = 'batch size (default: 64)', default=128)
+    train.add_argument('--batchsteps', help = 'batchseteps (default: 30, 60, 120)', default=[30, 100], nargs='+')
+    train.add_argument('--cuda', help = 'whether use cuda', required=False, action='store_true')
     concat_fasta.add_argument('-fa','--fasta',type=str, nargs='+',help='The path to input FASTA files',required=True)
     concat_fasta.add_argument('-o','--output',help="The path to output FASTA file", required=True)
     args = parser.parse_args()
@@ -217,19 +225,21 @@ def main():
         file_handler = logging.FileHandler(f"{args.output}/LorBin.log") 
         logger.addHandler(file_handler)
         file_handler.setFormatter(formatter) 
-        train_vae(logger, args.output,  args.batch_size, args.epoch, args.batchsteps, args.lrate, args.data)
+        train_vae(logger, args.output,  args.batch_size, args.epoch, args.batchsteps, args.lrate, args.cuda, args.data)
     elif args.cmd=='cluster':
         if not check_cluster(logger, args.output, args.fasta, args.embeddingdir, args.data, args.evaluation, args.akeep):sys.exit()
         file_handler = logging.FileHandler(f"{args.output}/LorBin.log") 
         logger.addHandler(file_handler)
         file_handler.setFormatter(formatter)
         generate_markers(logger, args.fasta, args.bin_length, args.num_process, args.output)
+        embeddingdir = args.embeddingdir
         if args.embeddingdir==None:
-            train_vae(logger, args.output,  args.batch_size, args.epoch, args.batchsteps, args.lrate, args.data)
+            train_vae(logger, args.output,  args.batch_size, args.epoch, args.batchsteps, args.lrate, args.cuda, args.data)
+            embeddingdir = f'{args.output}/embedding.csv'
         if args.multi:
-            mcluster(logger, args.output, args.fasta, args.embeddingdir, args.bin_length, args.evaluation,args.akeep)
+            mcluster(logger, args.output, args.fasta, embeddingdir, args.bin_length, args.evaluation,args.akeep)
         else:
-            cluster(logger, args.output, args.fasta, args.embeddingdir, args.bin_length, args.evaluation,args.akeep)
+            cluster(logger, args.output, args.fasta, embeddingdir, args.bin_length, args.evaluation,args.akeep)
     elif args.cmd=='concat':
         concat(args.output,args.fasta)
     else:
