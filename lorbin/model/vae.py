@@ -233,9 +233,6 @@ class VAE(nn.Module):
         # Latent layers
         mu = self.mu(tensor)
 
-        # Note: We ought to also compute logsigma here, but we had a bug in the original
-        # implementation of Vamb where logsigma was fixed to zero, so we just remove it.
-
         return mu
 
     # sample with gaussian noise
