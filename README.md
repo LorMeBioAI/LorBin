@@ -1,6 +1,7 @@
 # LorBin
 
 GitHub repository for the manuscript "LorBin: Efficient binning of long-read metagenomes by multiscale adaptive clustering and evaluation".
+The code is also citable by obtaining a DOI for the Github repository in order to provide a permanent reference to the version of the code used in this study and improve reproducibility( https://doi.org/10.5281/zenodo.13864645 )
 - [Overview](#overview)
 - [System Requirements](#requirements)
 - [Install LorBin via source code](#install)
@@ -193,3 +194,4 @@ options:
 [1] Pan, S., Zhao, X.-M. & Coelho, L. P. SemiBin2: self-supervised contrastive learning leads to better MAGs for short- and long-read sequencing. Bioinformatics 39, i21–i29 (2023).   
 [2] Nissen, J. N. et al. Improved metagenome binning and assembly using deep variational autoencoders. Nat Biotechnol 39, 555–560 (2021).
 [3] Wang, Z. et al. Effective binning of metagenomic contigs using contrastive multi-view representation learning. Nat Commun 15, 585 (2024).
+
