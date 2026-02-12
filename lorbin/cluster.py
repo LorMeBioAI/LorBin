@@ -109,6 +109,9 @@ def bin_cluster(logger, latent, contig2marker, contig_dict, contig_list, contig_
     result_dict = {}
     # create BIRCH
     min_k_1 = min(200, latent.shape[0] - 1)
+    if min_k_1 < 1:
+        logger.info("Too few contigs for kneighbors_graph, skipping clustering")
+        return [-1] * len(contig_all), []
     dist_matrix = kneighbors_graph(
         latent,
         n_neighbors=min_k_1,
@@ -266,14 +269,21 @@ def bin_cluster(logger, latent, contig2marker, contig_dict, contig_list, contig_
     recluster_list = contig_all[recluster_index].tolist()
     min_k_2 = min(200, recluster_latent.shape[0]-1)
 
+    if min_k_2 < 1:
+        logger.info("Too few unclustered contigs for reclustering, skipping")
+        contig2ix = {}
+        for i, cs in enumerate(extracted):
+            for c in cs:
+                contig2ix[contig_all[c]] = i
+        contig_labels = [contig2ix.get(c, -1) for c in contig_all]
+        return contig_labels, keep_label
+
     dist_matrix = kneighbors_graph(
         recluster_latent,
         n_neighbors=min_k_2,
         mode='distance',
         p=2,
         n_jobs=10)
-
-
 
     p2_distance = dist_matrix.data
     eps_p2_2=[]
