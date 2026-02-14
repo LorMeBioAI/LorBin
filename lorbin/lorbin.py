@@ -235,7 +235,7 @@ def main():
         logger.addHandler(file_handler)
         generate_data(logger, args.fasta, args.bam, args.output, args.num_process)
         generate_markers(logger, args.fasta, args.bin_length, args.num_process, args.output)
-        train_vae(logger,args.output, epoch=args.epoch)
+        train_vae(logger,args.output, epoch=args.epoch, is_cuda=args.cuda or None)
         embeddingdir = f"{args.output}/embedding.csv"
         if args.multi:
             mcluster(logger, args.output, args.fasta, embeddingdir, args.bin_length, args.evaluation,args.akeep)
