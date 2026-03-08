@@ -172,7 +172,7 @@ def parser_args():
     for p in [ bin_mode,generate_data,cluster]:
         p.add_argument('-o','--output',type=str,help='Output directory (will be created if non-existent)',required=True, default=None)
         p.add_argument('-fa','--fasta',type=str, help='Path to the input fasta file.',required=True, default=None)
-        p.add_argument('--bin_length', default=80000,help='Minimum bin size in bps (Default: 80000)')
+        p.add_argument('--bin_length', type=int, default=80000,help='Minimum bin size in bps (Default: 80000)')
     for p in [ bin_mode, generate_data]:
         p.add_argument('-b','--bam',type=str, nargs='+',help='Path to the input BAM(.bam) file. ',required=True,default=None)
         p.add_argument(
@@ -183,14 +183,14 @@ def parser_args():
         )
     for p in [bin_mode, cluster]:
         p.add_argument('--evaluation',type=str, default="no_markers", help='Evaluation model used(no_markers, markers110, markers35, default: nomarkers')
-        p.add_argument('-a','--akeep',default=0.6, help='The cut-off parameters of re-clustering decision model(0~1, default:0.6)')
+        p.add_argument('-a','--akeep',type=float, default=0.6, help='The cut-off parameters of re-clustering decision model(0~1, default:0.6)')
         p.add_argument('--multi',action='store_true', default=False, help='Cluster uses more samples')
     # ===== add training args for bin mode =====
     bin_mode.add_argument('--epoch','-n', type=int, default=300,
                         help='training epoch (default: 300)')
     bin_mode.add_argument('--batch_size', type=int, default=128,
                         help='batch size (default: 128)')
-    bin_mode.add_argument('--batchsteps', nargs='+', default=[30, 100],
+    bin_mode.add_argument('--batchsteps', type=int, nargs='+', default=[30, 100],
                         help='batchsteps (default: 30 100)')
     bin_mode.add_argument('--lrate','-l', type=float, default=0.001,
                          help='learning rate (default: 0.001)')
@@ -206,17 +206,17 @@ def parser_args():
         help='Number of threads used (default: 10)'
     )
     cluster.add_argument('--cuda', help = 'whether use cuda', required=False, action='store_true')
-    cluster.add_argument('--batch_size', help = 'batch size (default: 64)', default=128)
-    cluster.add_argument('--epoch','-n', help='training epoch (default: 300)', default=300)
-    cluster.add_argument('--lrate','-l',help='learning rate (default: 0.001)', default=0.001)
-    cluster.add_argument('--batchsteps', help = 'batchseteps (default: 30, 60, 120)', default=[30, 100], nargs='+')
+    cluster.add_argument('--batch_size', type=int, help='batch size (default: 128)', default=128)
+    cluster.add_argument('--epoch','-n', type=int, help='training epoch (default: 300)', default=300)
+    cluster.add_argument('--lrate','-l', type=float, help='learning rate (default: 0.001)', default=0.001)
+    cluster.add_argument('--batchsteps', type=int, help='batchsteps (default: 30 100)', default=[30, 100], nargs='+')
 
     train.add_argument('--data',type=str, help='The path of training data', required=True)
     train.add_argument('-o','--output',type=str,help='Output directory (will be created if non-existent)',required=True, default=None)
-    train.add_argument('--epoch','-n', help='training epoch (default: 300)', default=300)
-    train.add_argument('--lrate','-l',help='learning rate (default: 0.001)', default=0.001)
-    train.add_argument('--batch_size', help = 'batch size (default: 64)', default=128)
-    train.add_argument('--batchsteps', help = 'batchseteps (default: 30, 60, 120)', default=[30, 100], nargs='+')
+    train.add_argument('--epoch','-n', type=int, help='training epoch (default: 300)', default=300)
+    train.add_argument('--lrate','-l', type=float, help='learning rate (default: 0.001)', default=0.001)
+    train.add_argument('--batch_size', type=int, help='batch size (default: 128)', default=128)
+    train.add_argument('--batchsteps', type=int, help='batchsteps (default: 30 100)', default=[30, 100], nargs='+')
     train.add_argument('--cuda', help = 'whether use cuda', required=False, action='store_true')
     concat_fasta.add_argument('-fa','--fasta',type=str, nargs='+',help='The path to input FASTA files',required=True)
     concat_fasta.add_argument('-o','--output',help="The path to output FASTA file", required=True)
