@@ -12,7 +12,177 @@ import numpy as np
 from sklearn.cluster import Birch, DBSCAN
 import logging
 import os
+import time
 
+
+
+class CandidatePool:
+    """The candidate bins that get_bin_best scans, with each candidate's length,
+    marker count and distinct-marker count kept up to date as contigs are
+    extracted, so a pass does not re-walk every candidate's contigs.
+
+    best() and extract() pick and remove exactly what get_bin_best and the
+    removal loops in bin_cluster do, in the same pool order: F1 depends only on
+    (distinct markers, total markers), so each distinct pair is scored once
+    with the same single-row model call get_bin_best makes.
+    """
+
+    def __init__(self, resultpool, contig_len, contig_markers):
+        n_cand = len(resultpool)
+        sizes = np.fromiter((len(r) for r in resultpool), dtype=np.int64, count=n_cand)
+        self.ptr = np.zeros(n_cand + 1, dtype=np.int64)
+        np.cumsum(sizes, out=self.ptr[1:])
+        self.members = np.fromiter((c for r in resultpool for c in r), dtype=np.int64,
+                                   count=int(self.ptr[-1]))
+        owner = np.repeat(np.arange(n_cand, dtype=np.int64), sizes)
+        # contig -> candidates containing it
+        order = np.argsort(self.members, kind='stable')
+        self.inv_cand = owner[order]
+        self.inv_ptr = np.searchsorted(self.members[order], np.arange(len(contig_len) + 1))
+        self.alive = np.ones(len(contig_len), dtype=bool)
+        self.contig_len = contig_len
+
+        cum = np.zeros(len(self.members) + 1, dtype=np.int64)
+        np.cumsum(contig_len[self.members], out=cum[1:])
+        self.weight = cum[self.ptr[1:]] - cum[self.ptr[:-1]]
+
+        # per-candidate marker counts, only for candidates holding a marker contig
+        self.contig_markers = contig_markers
+        marker_contigs = [c for c in contig_markers if self.inv_ptr[c + 1] > self.inv_ptr[c]]
+        self.row = np.full(n_cand, -1, dtype=np.int64)
+        if marker_contigs:
+            has = np.unique(np.concatenate([self._cands(c) for c in marker_contigs]))
+            self.row[has] = np.arange(len(has))
+        n_markers = 1 + max((m for ms in contig_markers.values() for m in ms), default=0)
+        self.counts = np.zeros((int((self.row >= 0).sum()), n_markers), dtype=np.int32)
+        for c in marker_contigs:
+            rows = self.row[self._cands(c)]
+            for m in contig_markers[c]:
+                self.counts[rows, m] += 1
+        self.n = np.zeros(n_cand, dtype=np.int64)
+        self.u = np.zeros(n_cand, dtype=np.int64)
+        self.f1 = np.zeros(n_cand, dtype=np.float64)
+        self.contamination = np.zeros(n_cand, dtype=np.float64)
+        self._scores = {}
+
+    def _cands(self, c):
+        return self.inv_cand[self.inv_ptr[c]:self.inv_ptr[c + 1]]
+
+    def score_all(self, evaluationmodel):
+        self.evaluationmodel = evaluationmodel
+        cands = np.flatnonzero(self.row >= 0)
+        self._rescore(cands)
+
+    def _rescore(self, cands):
+        rows = self.counts[self.row[cands]]
+        self.n[cands] = rows.sum(axis=1)
+        self.u[cands] = (rows > 0).sum(axis=1)
+        for k in cands:
+            n, u = int(self.n[k]), int(self.u[k])
+            if n == 0:
+                self.f1[k] = 0.0
+                self.contamination[k] = 0.0
+                continue
+            # the same float arithmetic as get_bin_best
+            contamination = (n - u) / n
+            self.contamination[k] = contamination
+            f1 = self._scores.get((u, n))
+            if f1 is None:
+                recall = u / 107
+                f1 = self.evaluationmodel(torch.Tensor([[recall, 1 - contamination, abs(recall - 1 + contamination)]])).item()
+                self._scores[(u, n)] = f1
+            self.f1[k] = f1
+
+    def best(self, keepmodel, minfasta, a):
+        """get_bin_best: (candidate index, keep) or None."""
+        eligible = np.flatnonzero((self.weight >= minfasta) & (self.n > 0))
+        for max_contamination in [0.1, 0.2, 0.3, 0.4, 0.5, 1]:
+            sel = eligible[self.contamination[eligible] <= max_contamination]
+            if sel.size == 0:
+                continue
+            f1 = self.f1[sel]
+            max_f1 = f1.max()
+            if max_f1 <= 0:
+                continue
+            # highest F1; among ties the lightest, and among those the last in pool order
+            tied = sel[f1 == max_f1]
+            w = self.weight[tied]
+            k = int(tied[np.flatnonzero(w == w.min())[-1]])
+            n, u = int(self.n[k]), int(self.u[k])
+            recall = u / 107
+            contamination = (n - u) / n
+            keep = keepmodel(torch.Tensor([[recall, 1 - contamination, abs(recall - 1 + contamination)]]))
+            return k, (True if keep > a else False)
+        return None
+
+    def contigs(self, k):
+        m = self.members[self.ptr[k]:self.ptr[k + 1]]
+        return m[self.alive[m]].tolist()
+
+    def extract(self, contigs):
+        """Remove these contigs from every candidate."""
+        contigs = np.asarray(contigs, dtype=np.int64)
+        self.alive[contigs] = False
+        touched_markers = []
+        for c in contigs.tolist():
+            cands = self._cands(c)
+            self.weight[cands] -= self.contig_len[c]
+            ms = self.contig_markers.get(c)
+            if ms:
+                rows = self.row[cands]
+                for m in ms:
+                    self.counts[rows, m] -= 1
+                touched_markers.append(cands)
+        if touched_markers:
+            self._rescore(np.unique(np.concatenate(touched_markers)))
+
+    def eligible_count(self, minfasta):
+        return int(((self.weight >= minfasta) & (self.n > 0)).sum())
+
+
+def _pool_inputs(contig2marker, namelist, contig_dict):
+    contig_len = np.array([len(contig_dict[name]) for name in namelist], dtype=np.int64)
+    marker_ids = {}
+    contig_markers = {}
+    for i, name in enumerate(namelist):
+        ms = contig2marker.get(name)
+        if ms:
+            contig_markers[i] = [marker_ids.setdefault(m, len(marker_ids)) for m in ms]
+    return contig_len, contig_markers
+
+
+def extract_bins(logger, pool, keepmodel, evaluationmodel, minfasta, a, max_rejects, stage):
+    """The extraction loop of bin_cluster, on a CandidatePool.
+
+    Returns (extracted, all_extracted, keep_label): kept bins, every chosen bin,
+    and the keep decision for each chosen bin. max_rejects is the run of
+    consecutive rejected bins that stops the loop, or None for no limit.
+    """
+    pool.score_all(evaluationmodel)
+    extracted, all_extracted, keep_label = [], [], []
+    rejects = 0
+    last_log = time.time()
+    while True:
+        found = pool.best(keepmodel, minfasta, a)
+        if found is None or (max_rejects is not None and rejects > max_rejects):
+            break
+        k, keep = found
+        max_bin = pool.contigs(k)
+        if keep or max_rejects is None:
+            extracted.append(max_bin)
+        if keep:
+            rejects = 0
+        else:
+            rejects += 1
+        all_extracted.append(max_bin)
+        keep_label.append(keep)
+        pool.extract(max_bin)
+        if time.time() - last_log > 600:
+            logger.info(f"{stage}: {len(all_extracted)} bins extracted, "
+                        f"{pool.eligible_count(minfasta)} candidates still eligible")
+            last_log = time.time()
+    logger.info(f"{stage}: {len(all_extracted)} bins extracted")
+    return extracted, all_extracted, keep_label
 
 
 def get_bin_best(keepmodel,evaluationmodel, resultpool, contig_to_marker, namelist, contig_dict, minfasta,a=0.6):
@@ -220,7 +390,15 @@ def bin_cluster(logger, latent, contig2marker, contig_dict, contig_list, contig_
     keep_label=[]
     keep_count=0
     logger.info("cluster")
-    while sum(len(contig_dict[contig]) for contig in contig_list) >= minfasta:
+    total_length = sum(len(contig_dict[contig]) for contig in contig_list)
+    if feature == "no_markers":
+        contig_len, contig_markers = _pool_inputs(contig2marker, contig_all, contig_dict)
+    fast = feature == "no_markers" and total_length >= minfasta and len(contig_list) != 1
+    if fast:
+        extracted, all_extracted, keep_label = extract_bins(
+            logger, CandidatePool(resultpool, contig_len, contig_markers),
+            model2, model1, minfasta, a, 200, "cluster")
+    while not fast and total_length >= minfasta:
         if len(contig_list) == 1:
             extracted.append(contig_list_index)
             break
@@ -307,7 +485,13 @@ def bin_cluster(logger, latent, contig2marker, contig_dict, contig_list, contig_
 
     minfasta = 1500
     keep_count=0
-    while sum(len(contig_dict[contig]) for contig in recluster_list) >= minfasta:
+    recluster_length = sum(len(contig_dict[contig]) for contig in recluster_list)
+    fast = feature == "no_markers" and recluster_length >= minfasta and len(recluster_list) != 1
+    if fast:
+        more, _, _ = extract_bins(logger, CandidatePool(resultpool, contig_len, contig_markers),
+                                  model2, model1, minfasta, a, None, "recluster")
+        extracted.extend(more)
+    while not fast and recluster_length >= minfasta:
         if len(recluster_list) == 1:
             extracted.append(recluster_index)
             break
